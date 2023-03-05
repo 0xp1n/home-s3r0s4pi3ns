@@ -1,8 +1,8 @@
 ---
 external: false
 draft: false
-title: Como crear un comando interactivo en bash
-description: Si tenías la curiosidad de como se crean estas herramientas por detras, aquí te lo explico
+title: Definir argumentos en un script de bash
+description: Si tenías la curiosidad de como se crean las herramientas de bash que te permiten pasar como parámetro opciones específicas este es tu lugar
 date: 2023-03-01
 ---
 
