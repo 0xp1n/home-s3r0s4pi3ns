@@ -13,6 +13,7 @@ date: 2023-03-07
   - [Buenas practicas separando particiones](#buenas-practicas-separando-particiones)
     - [/tmp](#tmp)
     - [/var \*](#var-)
+  - [Servidor instalado, primeros pasos](#servidor-instalado-primeros-pasos)
 - [Fuentes](#fuentes)
 
 # Introduccion
@@ -27,7 +28,9 @@ Esto ya depende del sistema operativo y hardware con el que te sientas cómodo, 
 
 ## Leer si usas MacOS ARM64
 
-Ahora que hay mas soporte para la architectura arm64 he podido virtualizar distintas distros excepto [Ubuntu Server](https://ubuntu.com/download/server/arm), el cual, me daba problemas y no conseguía establecer la máquina virtual con éxito. Si vas a utilizar MacOS para seguir este tutorial te recomiendo echarle un vistazo a [este vídeo](https://www.youtube.com/watch?v=k1nYeqj2Kmk) a ver si siguiendo los pasos consigues con éxito lo que yo no pude
+Ahora que hay mas soporte para la architectura arm64 tenemos disponible la imagen iso [Ubuntu Server ARM](https://ubuntu.com/download/server/arm) y puedes utilizar [](https://mac.getutm.app/) para virtualizar. Si vas a utilizar MacOS para seguir este tutorial, te recomiendo echarle un vistazo a [este vídeo](https://www.youtube.com/watch?v=k1nYeqj2Kmk) si ves que no consigues instalarlo.
+
+El truco está en apagar la máquina una vez terminaste la instalación y reiniciaste _(verás que se queda con la pantalla en negro y el cursor parpadeando)_ para poder limpiar la unidad de disco CD/DVD una vez terminada la instalación.
 
 ## Instalacion
 
@@ -36,12 +39,16 @@ Todo empieza aquí, si ya dejamos todo preparado desde el principio nos ahorrare
 Como el proceso de instalación suele ser el mismo para todas las distros, no adjuntaré pantallazos pero si los pasos que he tomado yo:
 
 - He definido el lenguaje del sistema como English y el layout del keyboard en Spanish _(llámame internacional)_
+- He elegido una instalación UbuntuServer y no instalado drivers de terceros _(sería una buena alternativa tirar por la configuración mínima pero esta pensada para servidores en los que usuarios reales no van a estar constantemente entrando)_
 - La interfaz de red la configura sola y la ip será de clase distinta segun utilizes NAT o bridge, a mi me gusta definir el adaptor de red en modo bridge para que imite la máquina virtual como si fuera un dispositivo físico mas en mi red.
 - No he definido un proxy ni alternativas de mirrors
 - Selecciona **'Custom storage layout'** en este paso y aplica [Buenas practicas separando particiones](#buenas-practicas-separando-particiones)
 - He encriptado el [LVM group](https://linuxhandbook.com/lvm-guide/) con [LUKS](https://en.wikipedia.org/wiki/Linux_Unified_Key_Setup) y he definido una passphrase para poder desencriptar el contenido, no se nota casi nada en el rendimiento del servidor y si alguien se llevara el contenido buena suerte desencriptándolo.
-- He elegido una instalación custom _(sería una buena alternativa tirar por la configuración mínima pero esta pensada para servidores en los que usuarios reales no van a estar constantemente entrando)_
+- Define el nombre del servidor el usuario principal como desees
 - He dicho si al instalar OPENSSH y no he instalado custom third party services
+- De los feature snaps no he instalado ninguno _(quizás te interese docker)_
+
+Ahora solo queda esperar hasta que salga la opción **Reboot now**, deja que termine de actualizar ya que antes verás la opción **Cancel update and reboot**
 
 ---
 
@@ -63,6 +70,21 @@ Este es un directorio que puede utilizar cualquier usuario del sistema y para ev
 Es usado por los demonios y otros servicios del sistema para almacenar datos dinámicos, algunos de los directorios contenidos pueden tener permisos de acceso y escritura para todos los usuarios del sistema.
 
 **/var/log/audit** esta orientado para los logs del sistema que auditaremos con [auditd](https://www.man7.org/linux/man-pages/man8/auditd.8.html)
+
+## Servidor instalado, primeros pasos
+
+El primer paso que daremos una vez hayamos inicado sesión con el usuario que hemos definido en el proceso de instalación es aplicar unas reglas de seguridad en el archivo de configuración `/etc/fstab` para cada una de las particiones que hemos definido como muestro en la siguiente imagen cortesía de Incibe:
+![fstab_config](https://s3.us-west-2.amazonaws.com/secure.notion-static.com/b0847eec-fa44-45a4-9f1d-d6098d9c2b37/Untitled.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAT73L2G45EIPT3X45%2F20230307%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20230307T140134Z&X-Amz-Expires=86400&X-Amz-Signature=3f59d4d10a64db30d3b90d4b63b84b2e2c3e92d4945eee9e76a14226764aa8f0&X-Amz-SignedHeaders=host&response-content-disposition=filename%3D%22Untitled.png%22&x-id=GetObject)
+
+No explicaré cada regla ya que las puedes encontrar en la man page de mount, accediendo con `man mount` pero te dejaré algunas por aquí:
+
+- **nodev** Do not interpret character or block special devices on the file system. This option is useful for a server that has
+  file systems containing special devices for architectures other than its own.
+
+- **noexec** Do not allow execution of any binaries on the mounted file system. This option is useful for a server that has file
+  systems containing binaries for architectures other than its own.
+
+- **nosuid** Do not allow set-user-identifier or set-group-identifier bits to take effect.
 
 # Fuentes
 
