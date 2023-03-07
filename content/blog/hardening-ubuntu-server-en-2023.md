@@ -13,14 +13,22 @@ date: 2023-03-07
   - [Buenas practicas separando particiones](#buenas-practicas-separando-particiones)
     - [/tmp](#tmp)
     - [/var \*](#var-)
-  - [Servidor instalado, primeros pasos](#servidor-instalado-primeros-pasos)
+  - [Servidor instalado, configurando fstab](#servidor-instalado-configurando-fstab)
+  - [Protegiendo el arranque GRUB](#protegiendo-el-arranque-grub)
+    - [Definir la contraseña](#definir-la-contraseña)
+    - [Solo lectura para archivo grub.cfg](#solo-lectura-para-archivo-grubcfg)
+    - [Contraseña para modo SINGLE USER](#contraseña-para-modo-single-user)
+- [Configuración de usuarios y grupos](#configuración-de-usuarios-y-grupos)
+  - [Caducidad de las contraseñas](#caducidad-de-las-contraseñas)
 - [Fuentes](#fuentes)
 
 # Introduccion
 
 Este es un tema que personalmente me gusta mucho y disfruto en el proceso, me parece un entrenamiento extra para aquellos que están entrenandose en seguridad ofensiva y se empiecen a familiarizar con la seguridad que estos servidores puedan tener.
 
-Despues de realizar unos cuantos CTFs siempre me ha parecido que falta la parte de evasión y ocultación del atacante. Es cierto que en la gran mayoría no es su propósito principal y se enfoca en aprender mediante la práctica ciertas técnicas que se pueden aplicar en entornos reales pero no nos olvidemos que una auditoría de seguridad también debería contemplar la detección de intrusiones y consecuente evasión - ocultación por parte del red teamer.
+Despues de realizar unos cuantos CTFs _(Capture the flags)_ siempre me ha parecido que falta la parte de evasión y ocultación del atacante. Es cierto que en la gran mayoría no es su propósito principal y se enfoca en aprender mediante la práctica ciertas técnicas que se pueden aplicar en entornos reales pero no nos olvidemos que una auditoría de seguridad también debería contemplar la detección de intrusiones y consecuente evasión ~ ocultación por parte del red teamer.
+
+He recopilado conocimiento de muchas fuentes a base de prueba error y determinando mediante la puesta en práctica, una buena manera de configurar un servidor por primera vez de forma segura mientras se aprenden una cantidad de conceptos brutales en el proceso. Puedes echar un vistazo a todas las fuentes [al final del artículo](#fuentes).
 
 # Entorno de trabajo
 
@@ -71,12 +79,12 @@ Es usado por los demonios y otros servicios del sistema para almacenar datos din
 
 **/var/log/audit** esta orientado para los logs del sistema que auditaremos con [auditd](https://www.man7.org/linux/man-pages/man8/auditd.8.html)
 
-## Servidor instalado, primeros pasos
+## Servidor instalado, configurando fstab
 
-El primer paso que daremos una vez hayamos inicado sesión con el usuario que hemos definido en el proceso de instalación es aplicar unas reglas de seguridad en el archivo de configuración `/etc/fstab` para cada una de las particiones que hemos definido como muestro en la siguiente imagen cortesía de Incibe:
+El primer paso que daremos una vez hayamos iniciado sesión con el usuario que hemos definido en el proceso de instalación es aplicar unas reglas de seguridad en el archivo de configuración `/etc/fstab` para cada una de las particiones que hemos definido como muestro en la siguiente imagen cortesía de Incibe:
 ![fstab_config](https://s3.us-west-2.amazonaws.com/secure.notion-static.com/b0847eec-fa44-45a4-9f1d-d6098d9c2b37/Untitled.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAT73L2G45EIPT3X45%2F20230307%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20230307T140134Z&X-Amz-Expires=86400&X-Amz-Signature=3f59d4d10a64db30d3b90d4b63b84b2e2c3e92d4945eee9e76a14226764aa8f0&X-Amz-SignedHeaders=host&response-content-disposition=filename%3D%22Untitled.png%22&x-id=GetObject)
 
-No explicaré cada regla ya que las puedes encontrar en la man page de mount, accediendo con `man mount` pero te dejaré algunas por aquí:
+No explicaré cada regla ya que las puedes encontrar en la man page de mount accediendo con `man mount` pero te dejaré algunas por aquí:
 
 - **nodev** Do not interpret character or block special devices on the file system. This option is useful for a server that has
   file systems containing special devices for architectures other than its own.
@@ -85,6 +93,80 @@ No explicaré cada regla ya que las puedes encontrar en la man page de mount, ac
   systems containing binaries for architectures other than its own.
 
 - **nosuid** Do not allow set-user-identifier or set-group-identifier bits to take effect.
+
+## Protegiendo el arranque GRUB
+
+Esta es una parte de las mas vulnerables y también las mas olvidadas a la hora de proteger. Un atacante podría escalar privilegios a root a traves del grub por lo que es necesario proteger esta zona al menos evitando vectores de ataques básicos.
+
+[https://linuxconfig.org/set-boot-password-with-grub](https://linuxconfig.org/set-boot-password-with-grub)
+
+Nos movemos al directorio `/etc/grub.d` y ejecutamos el comando `grub-mkpasswd-pbkdf2` donde a través de una prompt podremos definir una contraseña.
+
+**Importante guardar el hash porque lo necesitaremos ahora.**
+
+### Definir la contraseña
+
+Podemos aplicar estos cambios al final del archivo `00_header` con el siguiente trozo de código:
+
+```bash
+# Utilizo root pero podría ser cualquier otro usuario que te interese del sistema o hayas configurado para tal fin
+# Sustituye el <hash> por el que has obtenido del anterior comando que hemos lanzado y definiste la contraseña
+
+# /etc/grub.d/00_header
+//...
+
+cat <<EOF
+set superuser="root"
+password_pbkdf2 root <hash>
+EOF
+```
+
+Y actualizamos el grub con el correspondiente reinicio del sistema, si todo fue correcto debería solicitarte la contraseña que hemos definido anteriormente en el arranque:
+
+```bash
+sudo update-grub && sudo reboot
+```
+
+### Solo lectura para archivo grub.cfg
+
+Por defecto tenemos un permiso 644 para el archivo `/boot/grub/grub.cfg` y realmente solo necesitamos que root lo pueda leer así que lo cambiamos a 400 con `sudo chmod 400 /boot/grub/grub.cfg`
+
+### Contraseña para modo SINGLE USER
+
+El modo single user tambien llamado modo mantenimiento en el que ejecutamos el sistema operativo de forma muy parecida al modo seguro de windows donde no tenemos capacidades de red y tenemos montado el sistema de archivos. El usuario en el que solemos operar en este modo es `root` y por defecto no hay contraseña asignada por lo que si un atacante inicia este modo tiene acceso al sistema de ficheros de forma completa.
+
+El procedimiento es el mismo que cualquier usuario de linux, nos cambiamos al usuario root con `sudo su` en el servidor y ejecutamos el comando `passwd` que nos permitirá setear una contraseña.
+
+# Configuración de usuarios y grupos
+
+En esta sección definiremos una política robusta de contraseñas, reglas de los grupos, tiempos de bloqueo de cuenta, timeouts de sesiones inactivas, etc.
+
+Hay un módulo bastante conocido llamado [libpam-pwquality](https://linux.die.net/man/8/pam_pwquality) el cual nos ayudará a configurar todas estas reglas a través de nuestro sistema
+
+## Caducidad de las contraseñas
+
+Se establece un estandar de 90 días en la industria para dar lugar al cambio de contraseña por usuario individual. Algunas corporaciones debido a su riesgo o tipo de servicio que ofrecen puede que necesiten implementar una regla mas robusta y cambiar la contraseña cada 45 días.
+
+Estos parámetros se puede definir en el archivo de configuración `/etc/login.defs`
+
+```bash
+# Por defecto nos encontramos
+
+# Password aging controls:
+#
+#       PASS_MAX_DAYS   Maximum number of days a password may be used.
+#       PASS_MIN_DAYS   Minimum number of days allowed between password changes.
+#       PASS_WARN_AGE   Number of days warning given before a password expires.
+#
+PASS_MAX_DAYS   99999
+PASS_MIN_DAYS   0
+PASS_WARN_AGE   7
+
+# Los cuales cambiamos a
+PASS_MAX_DAYS   90
+PASS_MIN_DAYS   1
+PASS_WARN_AGE   7
+```
 
 # Fuentes
 
